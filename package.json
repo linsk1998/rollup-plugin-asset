@@ -1,0 +1,23 @@
+{
+  "name": "rollup-plugin-asset",
+  "version": "1.0.2",
+  "description": "emit file as rollup asset",
+  "main": "index.js",
+  "keywords": [
+    "emit",
+    "file",
+    "asset",
+    "rollup"
+  ],
+  "author": "linsk",
+  "license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/linsk1998/rollup-plugin-asset.git"
+	},
+  "dependencies": {
+    "@rollup/pluginutils": "^4.1.0",
+    "magic-string": "^0.25.7"
+  },
+  "devDependencies": {}
+}
