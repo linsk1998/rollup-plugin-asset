@@ -1,5 +1,6 @@
 var { createFilter } =require('@rollup/pluginutils');
 var MagicString = require('magic-string');
+var estreeWalker = require('estree-walker');
 var { basename } = require('path');
 module.exports=function(options){
 	const defaultOptions={
@@ -8,6 +9,7 @@ module.exports=function(options){
 	};
 	options = Object.assign(defaultOptions,options);
 	const filter = createFilter(options.include || defaultOptions.include, options.exclude);
+	var sourceMap = options.sourceMap !== false && options.sourcemap !== false;
 	var assetFiles=[];
 	var assetVariables=[];
 	return {
@@ -45,23 +47,26 @@ module.exports=function(options){
 			}
 			var hasChanged=false;
 			var magicString = new MagicString(code);
-			ast.body.forEach(function (node) {
-				if (node.type==='VariableDeclaration') {
-					node.declarations.forEach(function(vder) {
-						if(vder.type=="VariableDeclarator") {
-							var init=vder.init;
-							if(init.type==="Identifier") {
-								var i=assetVariables.indexOf(init.name);
-								if(i>=0){
-									var fileName=this.getFileName(assetFiles[i]);
-									magicString.overwrite(init.start,init.end,JSON.stringify(options.publicPath+fileName));
-									hasChanged=true;
+
+			estreeWalker.walk(ast, {
+				enter: (node, parent)=> {
+					if (node.type==='VariableDeclaration') {
+						node.declarations.forEach(function(vder) {
+							if(vder.type=="VariableDeclarator") {
+								var init=vder.init;
+								if(init.type==="Identifier") {
+									var i=assetVariables.indexOf(init.name);
+									if(i>=0){
+										var fileName=this.getFileName(assetFiles[i]);
+										magicString.overwrite(init.start,init.end,JSON.stringify(options.publicPath+fileName));
+										hasChanged=true;
+									}
 								}
 							}
-						}
-					}, this);
+						}, this);
+					}
 				}
-			}, this);
+			});
 			if (!hasChanged) {
 				return {
 					code: code,
@@ -69,7 +74,8 @@ module.exports=function(options){
 				};
 			}
 			return {
-				code: magicString.toString()
+				code: magicString.toString(),
+				map: sourceMap ? magicString.generateMap({ hires: true }) : null
 			};
 		}
 	};
