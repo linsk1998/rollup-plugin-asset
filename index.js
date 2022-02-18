@@ -1,15 +1,21 @@
 var { createFilter } =require('@rollup/pluginutils');
-var MagicString = require('magic-string');
-var estreeWalker = require('estree-walker');
 var { basename } = require('path');
+
+function defaultName(name){
+	return name
+}
+function transformUrl(url){
+	return `export default ${url};`
+}
 module.exports=function(options){
 	const defaultOptions={
 		publicPath: "",
+		emitFileName:defaultName,
+		transform:transformUrl,
 		include:[/\.css$/,/\.jpg$/,/\.png$/,/\.gif$/,/\.swf$/,/\.ogg$/,/\.mp4$/]
 	};
 	options = Object.assign(defaultOptions,options);
 	const filter = createFilter(options.include || defaultOptions.include, options.exclude);
-	var sourceMap = options.sourceMap !== false && options.sourcemap !== false;
 	var assetFiles=[];
 	var assetVariables=[];
 	return {
@@ -19,64 +25,23 @@ module.exports=function(options){
 			if (!filter(id)) return null;
 			var fileId = this.emitFile({
 				type: 'asset',
-				name: basename(id),
+				name: options.emitFileName(basename(id)),
 				source: code
 			});
 			var variable=`__asset_${fileId}__`;
 			assetFiles.push(fileId);
 			assetVariables.push(variable);
 			return {
-				code: `export default ${variable};`
+				code: options.transform(`import.meta.${variable}`)
 			};
 		},
-		renderChunk(code, chunk, config){
-			if(chunk.type !== 'chunk'){
-				return ;
+		resolveImportMeta(property) {
+			var i=assetVariables.indexOf(property);
+			if(i>=0){
+				var fileName=this.getFileName(assetFiles[i]);
+				return JSON.stringify(options.publicPath+fileName);
 			}
-			var ast = null;
-			try {
-				ast = this.parse(code);
-			} catch (err) {
-				this.warn({
-					code: 'PARSE_ERROR',
-					message: ("rollup-plugin-asset: failed to parse " + chunk.facadeModuleId + ".")
-				});
-			}
-			if (!ast) {
-				return ;
-			}
-			var hasChanged=false;
-			var magicString = new MagicString(code);
-
-			estreeWalker.walk(ast, {
-				enter: (node, parent)=> {
-					if (node.type==='VariableDeclaration') {
-						node.declarations.forEach(function(vder) {
-							if(vder.type=="VariableDeclarator") {
-								var init=vder.init;
-								if(init.type==="Identifier") {
-									var i=assetVariables.indexOf(init.name);
-									if(i>=0){
-										var fileName=this.getFileName(assetFiles[i]);
-										magicString.overwrite(init.start,init.end,JSON.stringify(options.publicPath+fileName));
-										hasChanged=true;
-									}
-								}
-							}
-						}, this);
-					}
-				}
-			});
-			if (!hasChanged) {
-				return {
-					code: code,
-					ast: ast
-				};
-			}
-			return {
-				code: magicString.toString(),
-				map: sourceMap ? magicString.generateMap({ hires: true }) : null
-			};
-		}
+			return null;
+		},
 	};
 };

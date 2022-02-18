@@ -37,3 +37,25 @@ console.log(style);
 - include: See @rollup/pluginutils. Default is .css,.jpg,.png,.gif,.swf,.ogg,.mp4.
 - exclude: See @rollup/pluginutils.
 - publicPath: Path prefix. Default is "".
+- emitFileName: Function return emit file name. Default is Origin filename.
+- transform: Function return what export. Default is url.
+
+### Example
+
+```javascript
+asset({
+	publicPath:"./",
+	transform(url){
+		return `var link = document.createElement('link');
+link.setAttribute('rel','stylesheet');
+link.setAttribute('type','text/css');
+link.setAttribute('href',${url});
+document.head.appendChild(link);
+export default link;`
+	},
+	emitFileName:function(name){
+		return name.replace(/\.scss$/,".css");
+	},
+	include:['**/*.scss']
+})
+```
